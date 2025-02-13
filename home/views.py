@@ -256,3 +256,69 @@ class CallBedrockForDate(APIView):
 
         except Exception as e:
             return Response({"error": f"An error occurred: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class PersonalInfoView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, user_id=None):
+        """
+        특정 user_id에 대한 mbti와 subscribe_platform 정보를 반환
+        """
+        # user_id가 주어지지 않은 경우, 로그인된 사용자의 ID를 사용
+        if not user_id:
+            user_id = request.user.username  # Cognito sub을 user_id로 사용
+
+        # Calendar 데이터 검색
+        calendar = Calendar.objects(user_id=user_id).first()
+        if not calendar:
+            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # PersonalSerializer를 사용하여 데이터 직렬화
+        serializer = PersonalSerializer(calendar)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        """
+            mbti와 subscribe_platform 데이터를 저장하거나 업데이트
+            """
+        # 현재 로그인된 사용자 ID 가져오기
+        user_id = request.user.username  # Cognito sub을 user_id로 사용
+
+        # 요청 데이터 가져오기
+        mbti = request.data.get("mbti")
+        subscribe_platform = request.data.get("subscribe_platform")
+
+        # 필수 데이터 확인
+        if not mbti or not subscribe_platform:
+            return Response({"error": "Both 'mbti' and 'subscribe_platform' are required"},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            # Calendar 데이터 검색
+            calendar = Calendar.objects(user_id=user_id).first()
+
+            if calendar:
+                # 이미 존재하면 데이터 업데이트
+                calendar.mbti = mbti
+                calendar.subscribe_platform = subscribe_platform
+                message = "User info updated successfully"
+            else:
+                # 없으면 새로 생성
+                calendar = Calendar(
+                    user_id=user_id,
+                    mbti=mbti,
+                    subscribe_platform=subscribe_platform
+                )
+                message = "User info created successfully"
+
+            # 변경 사항 저장
+            calendar.save()
+
+            return Response({"message": message}, status=status.HTTP_200_OK if calendar.id else status.HTTP_201_CREATED)
+
+        except Exception as e:
+            return Response({"error": f"An error occurred: {str(e)}"},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+

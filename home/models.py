@@ -19,6 +19,7 @@ class Entry(EmbeddedDocument):
 class Calendar(Document):
     user_id = fields.StringField(required=True, unique=True)  # ✅ ObjectId 대신 String (Cognito sub 저장)
     mbti = fields.StringField()
+    subscribe_platform = fields.StringField()
     entries = fields.MapField(fields.EmbeddedDocumentField(Entry))  # 날짜별 Entry 매핑
 
     meta = {

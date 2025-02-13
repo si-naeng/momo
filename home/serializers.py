@@ -8,8 +8,6 @@ class EmoticonsSerializer(EmbeddedDocumentSerializer):
         model = Emoticons
         fields = ("weather", "emotion", "activity", "daily")
 
-
-
 class EntrySerializer(EmbeddedDocumentSerializer):
     emoticons = EmoticonsSerializer()
 
@@ -29,3 +27,7 @@ class DateSerializer(DocumentSerializer):
         model = Calendar
         fields = ("date",)
 
+class PersonalSerializer(DocumentSerializer):
+    class Meta:
+        model = Calendar
+        fields = ("mbti", "subscribe_platform")
