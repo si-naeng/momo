@@ -13,7 +13,7 @@ class EntrySerializer(EmbeddedDocumentSerializer):
 
     class Meta:
         model = Entry
-        fields = ("date", "emoticons", "diary", "recommend_content", "result_emotion")
+        fields = ("date", "emoticons", "diary", "result_emotion")
 
 class CalendarSerializer(DocumentSerializer):
     entries = serializers.DictField(child=EntrySerializer())  # 여기를 수정!
