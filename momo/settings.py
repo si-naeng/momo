@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'home.apps.HomeConfig',
+    'insight.apps.InsightConfig',
     'rest_framework',
     'rest_framework.authtoken',
     'users.apps.UsersConfig',

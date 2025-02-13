@@ -12,7 +12,7 @@ class Entry(EmbeddedDocument):
     date = fields.StringField(required=True)  # 날짜를 문자열로 저장
     emoticons = fields.EmbeddedDocumentField(Emoticons)
     diary = fields.StringField()
-    recommend_content = fields.ObjectIdField(null=True, default=None)  # ✅ null 허용
+    recommend_content = fields.StringField(null=True, default=None)  # ✅ null 허용
     result_emotion = fields.StringField(null=True, default=None)  # ✅ null 허용
 
 # Calendar (Main Document)
