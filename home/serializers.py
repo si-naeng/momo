@@ -31,3 +31,10 @@ class PersonalSerializer(DocumentSerializer):
     class Meta:
         model = Calendar
         fields = ("mbti", "subscribe_platform")
+
+from rest_framework import serializers
+
+
+class QuestionSerializer(serializers.Serializer):
+    question_text = serializers.CharField()
+

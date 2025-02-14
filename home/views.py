@@ -433,3 +433,38 @@ class PersonalInfoView(APIView):
         except Exception as e:
             return Response({"error": f"An error occurred: {str(e)}"},
                             status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from .serializers import QuestionSerializer
+
+
+class QuestionView(APIView):
+    def post(self, request):
+        # 요청 데이터 디버깅
+        print("Request data received:", request.data)
+
+        # 요청 데이터 검증을 위해 QuestionSerializer 사용
+        serializer = QuestionSerializer(data=request.data)
+
+        if serializer.is_valid():
+            # 검증된 데이터를 ChatBot 함수로 전달
+            question_text = serializer.validated_data.get("question_text")
+
+            # Bedrock 모델 호출
+            try:
+                response_content = bedrock_chat_bot(input_text=question_text)
+            except Exception as e:
+                return Response(
+                    {"error": f"ChatBot invocation failed: {str(e)}"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+
+            # 성공적으로 ChatBot 응답 반환
+            return Response({"response": response_content}, status=status.HTTP_200_OK)
+
+        # 유효하지 않은 데이터가 입력된 경우
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+

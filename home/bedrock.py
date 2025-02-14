@@ -147,3 +147,20 @@ def bedrock_response_sub_platform(input_text):
     return response.content  # Claude 모델 응답 반환
 
 
+def bedrock_chat_bot(input_text):
+    # Bedrock 모델 클라이언트 초기화
+    llm = ChatBedrock(
+        model_id="anthropic.claude-3-5-sonnet-20240620-v1:0",
+        region_name=AWS_REGION,  # AWS 리전 설정
+    )
+
+    # 모델 입력 메시지 (시스템 메시지 + 사용자 메시지 구성)
+    print(f"Sending input text: {input_text}")
+    messages = [
+        HumanMessage(content=input_text),  # 사용자 메시지
+    ]
+
+    # Bedrock 모델 호출
+    response = llm.invoke(messages)
+    return response.content  # Claude 모델 응답 반환
+
