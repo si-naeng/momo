@@ -38,3 +38,7 @@ from rest_framework import serializers
 class QuestionSerializer(serializers.Serializer):
     question_text = serializers.CharField()
 
+class RecommendSerializer(EmbeddedDocumentSerializer):
+    class Meta:
+        model = Entry
+        fields = ("recommend_content", "result_emotion")

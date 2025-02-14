@@ -435,12 +435,6 @@ class PersonalInfoView(APIView):
                             status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from .serializers import QuestionSerializer
-
-
 class QuestionView(APIView):
     def post(self, request):
         # 요청 데이터 디버깅
@@ -467,4 +461,62 @@ class QuestionView(APIView):
 
         # 유효하지 않은 데이터가 입력된 경우
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+class RecommendView(APIView):
+    """
+    특정 사용자 ID(user_id)와 특정 날짜(date)에 해당하는 Calendar 데이터를 조회
+    """
+
+    def get(self, request, date,user_id=None):
+        # 날짜 형식 확인 및 파싱
+        try:
+            target_date = datetime.strptime(date, "%Y-%m-%d").date()
+        except ValueError:
+            return Response(
+                {"error": "Invalid date format. Please use YYYY-MM-DD."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 사용자 정보 확인 (인증된 사용자 또는 제공된 사용자 ID)
+        auth_user = request.user
+        user_id = user_id or getattr(auth_user, "username", None)  # Cognito 사용 시 `username` 사용 가능
+
+        if not user_id:
+            return Response(
+                {"error": "User ID is required or you are not authorized."},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        try:
+            # 사용자 ID로 Calendar 검색
+            calendar = Calendar.objects(user_id=user_id).first()  # 첫 번째 매칭 항목 가져오기
+
+            if not calendar:
+                return Response(
+                    {"error": f"Calendar not found for user ID {user_id}."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # entries에서 해당 날짜 확인
+            target_date_str = target_date.strftime("%Y-%m-%d")  # 문자열로 변환
+            entry = calendar.entries.get(target_date_str)  # 날짜 데이터 검색
+
+            if not entry:
+                return Response(
+                    {"error": f"No entry found for the specified date: {target_date_str}."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # entry 데이터를 직렬화하여 응답
+            serializer = RecommendSerializer(entry)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response(
+                {"error": f"An unexpected error occurred: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
 
