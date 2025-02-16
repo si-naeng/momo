@@ -12,7 +12,7 @@ urlpatterns = [
     path("bedrock/sub/<str:date>", CallBedrockSubPlatform.as_view(), name="bedrock_call_sub"),
     path("bedrock/chatbot", QuestionView.as_view(), name="bedrock_chatbot"),
     path("calendar/recommend/<str:date>",RecommendView.as_view(),name="calendar_recommend"),
-
+    path("calendar/recommend_content/<str:date>", RecommendView.as_view(), name="calendar_recommend"),
 ]
 
 

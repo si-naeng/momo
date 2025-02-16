@@ -42,3 +42,8 @@ class RecommendSerializer(EmbeddedDocumentSerializer):
     class Meta:
         model = Entry
         fields = ("recommend_content", "result_emotion")
+
+class RecommendContentSerializer(EmbeddedDocumentSerializer):
+    class Meta:
+        model = Entry
+        fields = "recommend_content"
