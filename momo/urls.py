@@ -26,6 +26,7 @@ urlpatterns = [
     path('users/', include('users.urls')),
     path('home/',include('home.urls')),
     path('bedrock/', include('bedrock.urls')),
+    path('statistics/',include('insight.urls')),
 ]
 
 
