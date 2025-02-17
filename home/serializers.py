@@ -1,6 +1,6 @@
 from rest_framework_mongoengine import serializers
 from rest_framework_mongoengine.serializers import *
-from .models import Calendar, Entry, Emoticons
+from .models import Calendar, Entry, Emoticons, Contents
 
 
 class EmoticonsSerializer(EmbeddedDocumentSerializer):
@@ -47,3 +47,24 @@ class RecommendContentSerializer(EmbeddedDocumentSerializer):
     class Meta:
         model = Entry
         fields = "recommend_content"
+
+
+class ContentsSerializer(DocumentSerializer):
+    """
+    Contents 모델을 위한 Serializer
+    """
+    class Meta:
+        model = Contents
+        fields = (
+            'content_id',
+            'title',
+            'genre',
+            'platform',
+            'poster_url',
+            'synopsis',
+            'rating',
+            'runtime',
+            'country',
+            'year',
+            'release_date'
+        )

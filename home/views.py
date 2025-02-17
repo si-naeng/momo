@@ -1,3 +1,5 @@
+import re
+
 from .serializers import *
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -464,7 +466,7 @@ class QuestionView(APIView):
 
 
 
-class RecommendView(APIView):
+class BedrockResponseView(APIView):
     """
     특정 사용자 ID(user_id)와 특정 날짜(date)에 해당하는 Calendar 데이터를 조회
     """
@@ -519,59 +521,77 @@ class RecommendView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+
 class RecommendContentView(APIView):
     """
-    특정 사용자 ID(user_id)와 특정 날짜(date)에 해당하는 recommend_content 데이터 조회
+    특정 사용자 ID(user_id)와 특정 날짜(date)에 해당하는 recommend_content와 매칭되는 콘텐츠 정보 조회
     """
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, date, user_id=None):
-        # 날짜 형식 확인 및 파싱
         try:
             target_date = datetime.strptime(date, "%Y-%m-%d").date()
         except ValueError:
             return Response(
-                {"error": "Invalid date format. Please use YYYY-MM-DD."},
+                {"error": "날짜 형식이 잘못되었습니다. YYYY-MM-DD 형식을 사용하세요."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # 사용자 정보 확인
         auth_user = request.user
-        user_id = user_id or getattr(auth_user, "username", None)  # Cognito 사용 시 `username` 사용 가능
+        user_id = user_id or getattr(auth_user, "username", None)
 
         if not user_id:
             return Response(
-                {"error": "User ID is required or you are not authorized."},
+                {"error": "사용자 ID가 필요하거나 인증되지 않았습니다."},
                 status=status.HTTP_401_UNAUTHORIZED
             )
 
         try:
-            # 사용자 ID로 Calendar 검색
             calendar = Calendar.objects(user_id=user_id).first()
-
             if not calendar:
                 return Response(
-                    {"error": f"Calendar not found for user ID {user_id}."},
+                    {"error": f"해당 사용자의 캘린더를 찾을 수 없습니다: {user_id}"},
                     status=status.HTTP_404_NOT_FOUND
                 )
 
-            # entries에서 해당 날짜 확인
             target_date_str = target_date.strftime("%Y-%m-%d")
             entry = calendar.entries.get(target_date_str)
-
             if not entry:
                 return Response(
-                    {"error": f"No entry found for the specified date: {target_date_str}."},
+                    {"error": f"해당 날짜의 데이터를 찾을 수 없습니다: {target_date_str}"},
                     status=status.HTTP_404_NOT_FOUND
                 )
 
-            # recommend_content 데이터만 반환
-            serializer = RecommendContentSerializer(entry)
-            return Response(serializer.data, status=status.HTTP_200_OK)
+            # recommend_content 값 가져오기
+            recommend_content = entry.recommend_content
+            if not recommend_content:
+                return Response(
+                    {"error": "추천 콘텐츠가 없습니다."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # Contents 컬렉션에서 매칭되는 콘텐츠 찾기
+            # 정규식 패턴 생성 (^는 문자열의 시작을 의미)
+            pattern = f"^{re.escape(recommend_content)}"
+            content = Contents.objects(title__regex=pattern).first()
+            
+            if not content:
+                return Response(
+                    {"error": f"매칭되는 콘텐츠를 찾을 수 없습니다: {recommend_content}"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # ContentsSerializer를 사용하여 데이터 직렬화
+            content_serializer = ContentsSerializer(content)
+            response_data = {
+                "recommend_content": recommend_content,
+                "content_details": content_serializer.data
+            }
+
+            return Response(response_data, status=status.HTTP_200_OK)
 
         except Exception as e:
             return Response(
-                {"error": f"An unexpected error occurred: {str(e)}"},
+                {"error": f"오류가 발생했습니다: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
-
