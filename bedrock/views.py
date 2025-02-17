@@ -1,14 +1,14 @@
 import re
+from datetime import datetime
 
-from .serializers import *
-from rest_framework.views import APIView
-from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from .models import Calendar
-from .serializers import CalendarSerializer
-from datetime import datetime, timedelta
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
 from .bedrock import *
+from .serializers import *
+
 
 class CallBedrockAllPlatform(APIView):
     """
@@ -25,75 +25,188 @@ class CallBedrockAllPlatform(APIView):
             user_id = getattr(auth_user, "username", None)  # Cognito의 user_id
 
             if not user_id:
-                return Response({"error": "User ID is required or unauthorized."}, status=status.HTTP_401_UNAUTHORIZED)
+                return Response({"error": "User ID is required or unauthorized."}, 
+                             status=status.HTTP_401_UNAUTHORIZED)
 
             # 날짜 형식 확인
             try:
                 target_date = datetime.strptime(date, "%Y-%m-%d").date()
+                target_date_str = target_date.strftime("%Y-%m-%d")
             except ValueError:
-                return Response({"error": "Invalid date format. Use YYYY-MM-DD."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"error": "Invalid date format. Use YYYY-MM-DD."}, 
+                             status=status.HTTP_400_BAD_REQUEST)
 
-            # `Calendar`에서 user_id로 데이터 조회
+            # Calendar에서 user_id로 데이터 조회
             calendar = Calendar.objects(user_id=user_id).first()
             if not calendar or not calendar.entries:
-                return Response({"error": "No entries found for the given user_id."}, status=status.HTTP_404_NOT_FOUND)
+                return Response({"error": "No entries found for the given user_id."}, 
+                             status=status.HTTP_404_NOT_FOUND)
 
             # 해당 날짜의 데이터 조회
-            target_date_str = target_date.strftime("%Y-%m-%d")
             entry = calendar.entries.get(target_date_str)
             if not entry:
-                return Response({"error": f"No entry found for date {target_date_str}."},
-                                status=status.HTTP_404_NOT_FOUND)
+                return Response({"error": f"No entry found for date {target_date_str}."}, 
+                             status=status.HTTP_404_NOT_FOUND)
 
-            # `emoticons` 데이터 추출
+            # emoticons 데이터 추출
             emoticons = entry.emoticons
             if not emoticons:
-                return Response({"error": "No emoticons data available in the entry."},
-                                status=status.HTTP_400_BAD_REQUEST)
+                return Response({"error": "No emoticons data available in the entry."}, 
+                             status=status.HTTP_400_BAD_REQUEST)
 
-            # `EmoticonsSerializer`로 직렬화
+            # EmoticonsSerializer로 직렬화
             emoticons_serializer = EmoticonsSerializer(emoticons)
             emoticons_data = emoticons_serializer.data
 
-            # `Diary` 데이터 포함
-            diary_text = entry.diary or "No diary provided"  # 다이어리가 없을 경우 기본값 설정
+            # Diary 데이터 포함
+            diary_text = entry.diary or "No diary provided"
 
             # Bedrock 호출
-            input_text = f"Emoticons Details: {emoticons_data}, Diary: {diary_text}"  # 필드 데이터 포함
+            input_text = f"Emoticons Details: {emoticons_data}, Diary: {diary_text}"
             bedrock_response_data = bedrock_response_all_platform(input_text)
 
-            # Bedrock 응답에서 추천 콘텐츠 제목({제목}) 추출
+            # Bedrock 응답에서 추천 콘텐츠 제목 추출
             recommended_content = None
             try:
-                # bedrock_response_data의 마지막 줄에서 "추천 콘텐츠 : " 이후를 추출
-                last_line = bedrock_response_data.strip().split("\n")[-1]  # 마지막 줄 추출
-                if last_line.startswith("추천 콘텐츠 :"):  # "추천 콘텐츠 :"로 시작하는지 확인
-                    # "추천 콘텐츠 : {플랫폼}"에서 플랫폼 이름 추출
+                last_line = bedrock_response_data.strip().split("\n")[-1]
+                print(f"Bedrock 응답 마지막 줄: {last_line}")
+
+                if last_line.startswith("추천 콘텐츠 :"):
                     prefix = "추천 콘텐츠 :"
-                    content_after_prefix = last_line[len(prefix):].strip()  # "추천 콘텐츠 :" 이후의 텍스트
-
-                    # 첫 번째 단어(플랫폼 이름) 추출
-                    platform, _, content = content_after_prefix.partition(" ")  # 플랫폼 이름 추출 후 나머지 내용
-                    recommended_content = content.strip()  # 제목 부분만 남기기
-
-                    # 제목에서 큰따옴표 제거
-                    recommended_content = recommended_content.strip('"').strip("'")
+                    content_after_prefix = last_line[len(prefix):].strip()
+                    platform, _, content = content_after_prefix.partition(" ")
+                    recommended_content = content.strip().strip('"').strip("'")
+                    print(f"추출된 콘텐츠 제목: {recommended_content}")
             except Exception as e:
-                print(f"Error parsing recommended content: {e}")  # 디버깅용 로그
+                print(f"콘텐츠 제목 추출 중 오류: {str(e)}")
 
             # Entry에 Bedrock 응답 및 영화 제목 저장
-            entry.result_emotion = bedrock_response_data  # 원래 Bedrock 응답 저장
-            entry.recommend_content = recommended_content  # 추천 제목만 저장
-            calendar.entries[target_date_str] = entry  # 변경된 Entry로 업데이트
-            calendar.save()  # 변경 내용 저장
+            entry.result_emotion = bedrock_response_data
+            entry.recommend_content = recommended_content
+            calendar.entries[target_date_str] = entry
+            calendar.save()
 
-            # Bedrock 응답 반환
-            return Response({
-                "bedrock_response": bedrock_response_data  # 영화 제목 추가 반환
-            }, status=status.HTTP_200_OK)
+            # ContentEmotionStats에 감정 통계 저장
+            if recommended_content and recommended_content.strip() and calendar.mbti:
+                try:
+                    # 콘텐츠 통계 데이터 가져오기 또는 생성
+                    content_stats = ContentEmotionStats.objects(title=recommended_content).first()
+                    if not content_stats:
+                        content_stats = ContentEmotionStats(title=recommended_content)
+                        content_stats.save()
+                        print(f"새로운 콘텐츠 통계 생성: {recommended_content}")
+
+                    # emoticons 데이터에서 emotion 리스트 가져오기
+                    emotions = emoticons_data.get('emotion', [])
+                    if emotions:
+                        # 감정 데이터 추가
+                        content_stats.add_emotions(calendar.mbti, emotions)
+                        print(f"감정 통계 추가 완료: 콘텐츠={recommended_content}, MBTI={calendar.mbti}, 감정={emotions}")
+                except Exception as e:
+                    print(f"감정 통계 저장 중 오류 발생: {str(e)}")
+            else:
+                print(f"데이터 저장 조건 불충족: recommended_content={recommended_content}, mbti={calendar.mbti}")
+
+
+
+            # 응답 데이터 구성
+            response_data = {
+                "bedrock_response": bedrock_response_data,
+                "recommended_content": recommended_content,
+            }
+
+            return Response(response_data, status=status.HTTP_200_OK)
 
         except Exception as e:
-            return Response({"error": f"An error occurred: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            error_message = f"An error occurred: {str(e)}"
+            print(f"API 처리 중 오류 발생: {error_message}")
+            return Response({"error": error_message}, 
+                          status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# class CallBedrockAllPlatform(APIView):
+#     """
+#     주어진 user_id와 date를 기반으로 Calendar 데이터를 조회한 뒤 Bedrock 모델 호출
+#     """
+
+#     def post(self, request, date):
+#         """
+#         URL로부터 date 값을 직접 받도록 수정
+#         """
+#         try:
+#             # 로그인된 사용자 ID 가져오기
+#             auth_user = request.user
+#             user_id = getattr(auth_user, "username", None)  # Cognito의 user_id
+
+#             if not user_id:
+#                 return Response({"error": "User ID is required or unauthorized."}, status=status.HTTP_401_UNAUTHORIZED)
+
+#             # 날짜 형식 확인
+#             try:
+#                 target_date = datetime.strptime(date, "%Y-%m-%d").date()
+#             except ValueError:
+#                 return Response({"error": "Invalid date format. Use YYYY-MM-DD."}, status=status.HTTP_400_BAD_REQUEST)
+
+#             # `Calendar`에서 user_id로 데이터 조회
+#             calendar = Calendar.objects(user_id=user_id).first()
+#             if not calendar or not calendar.entries:
+#                 return Response({"error": "No entries found for the given user_id."}, status=status.HTTP_404_NOT_FOUND)
+
+#             # 해당 날짜의 데이터 조회
+#             target_date_str = target_date.strftime("%Y-%m-%d")
+#             entry = calendar.entries.get(target_date_str)
+#             if not entry:
+#                 return Response({"error": f"No entry found for date {target_date_str}."},
+#                                 status=status.HTTP_404_NOT_FOUND)
+
+#             # `emoticons` 데이터 추출
+#             emoticons = entry.emoticons
+#             if not emoticons:
+#                 return Response({"error": "No emoticons data available in the entry."},
+#                                 status=status.HTTP_400_BAD_REQUEST)
+
+#             # `EmoticonsSerializer`로 직렬화
+#             emoticons_serializer = EmoticonsSerializer(emoticons)
+#             emoticons_data = emoticons_serializer.data
+
+#             # `Diary` 데이터 포함
+#             diary_text = entry.diary or "No diary provided"  # 다이어리가 없을 경우 기본값 설정
+
+#             # Bedrock 호출
+#             input_text = f"Emoticons Details: {emoticons_data}, Diary: {diary_text}"  # 필드 데이터 포함
+#             bedrock_response_data = bedrock_response_all_platform(input_text)
+
+#             # Bedrock 응답에서 추천 콘텐츠 제목({제목}) 추출
+#             recommended_content = None
+#             try:
+#                 # bedrock_response_data의 마지막 줄에서 "추천 콘텐츠 : " 이후를 추출
+#                 last_line = bedrock_response_data.strip().split("\n")[-1]  # 마지막 줄 추출
+#                 if last_line.startswith("추천 콘텐츠 :"):  # "추천 콘텐츠 :"로 시작하는지 확인
+#                     # "추천 콘텐츠 : {플랫폼}"에서 플랫폼 이름 추출
+#                     prefix = "추천 콘텐츠 :"
+#                     content_after_prefix = last_line[len(prefix):].strip()  # "추천 콘텐츠 :" 이후의 텍스트
+
+#                     # 첫 번째 단어(플랫폼 이름) 추출
+#                     platform, _, content = content_after_prefix.partition(" ")  # 플랫폼 이름 추출 후 나머지 내용
+#                     recommended_content = content.strip()  # 제목 부분만 남기기
+
+#                     # 제목에서 큰따옴표 제거
+#                     recommended_content = recommended_content.strip('"').strip("'")
+#             except Exception as e:
+#                 print(f"Error parsing recommended content: {e}")  # 디버깅용 로그
+
+#             # Entry에 Bedrock 응답 및 영화 제목 저장
+#             entry.result_emotion = bedrock_response_data  # 원래 Bedrock 응답 저장
+#             entry.recommend_content = recommended_content  # 추천 제목만 저장
+#             calendar.entries[target_date_str] = entry  # 변경된 Entry로 업데이트
+#             calendar.save()  # 변경 내용 저장
+
+#             # Bedrock 응답 반환
+#             return Response({
+#                 "bedrock_response": bedrock_response_data  # 영화 제목 추가 반환
+#             }, status=status.HTTP_200_OK)
+
+#         except Exception as e:
+#             return Response({"error": f"An error occurred: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class CallBedrockSubPlatform(APIView):
@@ -335,9 +448,11 @@ class RecommendContentView(APIView):
             content_serializer = ContentsSerializer(content)
             response_data = {
                 "recommend_content": recommend_content,
-                "content_details": content_serializer.data
+                "content_info": {
+                    "title": content_serializer.data.get('title'),
+                    "poster_url": content_serializer.data.get('poster_url')
+                }
             }
-
             return Response(response_data, status=status.HTTP_200_OK)
 
         except Exception as e:
@@ -345,3 +460,5 @@ class RecommendContentView(APIView):
                 {"error": f"오류가 발생했습니다: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+        
+

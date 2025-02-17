@@ -1,6 +1,6 @@
-from rest_framework_mongoengine import serializers
 from rest_framework_mongoengine.serializers import *
-from .models import Calendar, Entry, Emoticons, Contents
+
+from .models import Calendar, Entry, Emoticons, Contents, ContentEmotionStats
 
 
 class EmoticonsSerializer(EmbeddedDocumentSerializer):
@@ -68,3 +68,10 @@ class ContentsSerializer(DocumentSerializer):
             'year',
             'release_date'
         )
+    
+
+
+class ContentEmotionStatsSerializer(DocumentSerializer):
+    class Meta:
+        model = ContentEmotionStats
+        fields = '__all__'
