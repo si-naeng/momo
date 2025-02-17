@@ -1,12 +1,5 @@
 from mongoengine import Document, StringField, DictField, connect
 
-# MongoDB 연결
-connect(
-    db="momo",  # 사용할 데이터베이스 이름
-    host="localhost",  # MongoDB 서버의 호스트 (기본값: localhost)
-    port=27017  # MongoDB 포트
-)
-
 
 # MongoDB 모델 정의
 class ContentMBTIEmotion(Document):
