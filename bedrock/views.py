@@ -74,13 +74,17 @@ class CallBedrockAllPlatform(APIView):
 
                 if last_line.startswith("추천 콘텐츠"):
                     prefix = "추천 콘텐츠"
-                    content_after_prefix = last_line[len(prefix):].strip()
+                    # "추천 콘텐츠" 다음에 오는 공백 또는 콜론(:)을 처리
+                    content_after_prefix = re.sub(r'^추천 콘텐츠\s*[:\s]*', '', last_line)
+                    # 첫 번째 공백을 기준으로 플랫폼과 콘텐츠 분리
                     platform, _, content = content_after_prefix.partition(" ")
                     recommended_content = content.strip().strip('"').strip("'")
                     print(f"추출된 콘텐츠 제목: {recommended_content}")
                 elif last_line.startswith("추천 컨텐츠"):
                     prefix = "추천 컨텐츠"
-                    content_after_prefix = last_line[len(prefix):].strip()
+                    # "추천 콘텐츠" 다음에 오는 공백 또는 콜론(:)을 처리
+                    content_after_prefix = re.sub(r'^추천 콘텐츠\s*[:\s]*', '', last_line)
+                    # 첫 번째 공백을 기준으로 플랫폼과 콘텐츠 분리
                     platform, _, content = content_after_prefix.partition(" ")
                     recommended_content = content.strip().strip('"').strip("'")
                     print(f"추출된 콘텐츠 제목: {recommended_content}")
@@ -199,13 +203,17 @@ class CallBedrockSubPlatform(APIView):
 
                 if last_line.startswith("추천 콘텐츠"):
                     prefix = "추천 콘텐츠"
-                    content_after_prefix = last_line[len(prefix):].strip()
+                    # "추천 콘텐츠" 다음에 오는 공백 또는 콜론(:)을 처리
+                    content_after_prefix = re.sub(r'^추천 콘텐츠\s*[:\s]*', '', last_line)
+                    # 첫 번째 공백을 기준으로 플랫폼과 콘텐츠 분리
                     platform, _, content = content_after_prefix.partition(" ")
                     recommended_content = content.strip().strip('"').strip("'")
                     print(f"추출된 콘텐츠 제목: {recommended_content}")
                 elif last_line.startswith("추천 컨텐츠"):
                     prefix = "추천 컨텐츠"
-                    content_after_prefix = last_line[len(prefix):].strip()
+                    # "추천 콘텐츠" 다음에 오는 공백 또는 콜론(:)을 처리
+                    content_after_prefix = re.sub(r'^추천 콘텐츠\s*[:\s]*', '', last_line)
+                    # 첫 번째 공백을 기준으로 플랫폼과 콘텐츠 분리
                     platform, _, content = content_after_prefix.partition(" ")
                     recommended_content = content.strip().strip('"').strip("'")
                     print(f"추출된 콘텐츠 제목: {recommended_content}")
