@@ -25,9 +25,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-cqsdnni5y#x2kie7wpx!@^f_ps2r@%+wjcu9dzz0c26p%9d48u'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+ALLOWED_HOSTS = ['*']
 
 # Application definition
 
@@ -60,10 +60,12 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",  # Next.js의 기본 개발 서버
-    "http://127.0.0.1:3000",  # Next.js가 로컬에서 실행되는 주소
-]
+CORS_ALLOW_ALL_ORIGINS = True
+
+# CORS_ALLOWED_ORIGINS = [
+#     "http://localhost:3000",  # Next.js의 기본 개발 서버
+#     "http://127.0.0.1:3000",  # Next.js가 로컬에서 실행되는 주소
+# ]
 
 
 ROOT_URLCONF = 'momo.urls'
@@ -103,10 +105,10 @@ from mongoengine import connect
 # MongoDB 연결 정보
 connect(
     db="momo",  # 사용할 데이터베이스 이름
-    host="localhost",  # MongoDB 호스트 주소 (기본: localhost)
+    host=["192.168.56.109", "192.168.56.110", "192.168.56.111"],  # MongoDB 호스트 주소 (기본: localhost)
     port=27017,  # 포트 번호 (기본: 27017)
-    # username="your_username",  # 사용자 이름 (선택 사항)
-    # password="your_password",  # 비밀번호 (선택 사항)
+    username="admin",
+    password="k8spass#",  # 비밀번호 (선택 사항)
     # authentication_source="admin",  # 인증 DB (옵션)
 )
 
@@ -165,6 +167,8 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 STATIC_URL = 'static/'
+
+APPEND_SLASH = False
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
