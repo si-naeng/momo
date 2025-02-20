@@ -104,15 +104,21 @@ WSGI_APPLICATION = 'momo.wsgi.application'
 
 from mongoengine import connect
 
-# MongoDB 연결 정보
+# 환경 변수에서 MongoDB 연결 정보 가져오기
+db_name = env('DB_NAME', default='momo')
+host = env('DB_HOST', default='localhost').split(',')
+port = env.int('DB_PORT', default=27017)
+username = env('DB_USERNAME', default=None)
+password = env('DB_PASSWORD', default=None)
+
+# MongoDB 연결
 connect(
-    db="momo",  # 사용할 데이터베이스 이름
-    host=["localhost"],
-#    host=["192.168.56.109", "192.168.56.110", "192.168.56.111"],  # MongoDB 호스트 주소 (기본: localhost)
-    port=27017,  # 포트 번호 (기본: 27017)
-#    username="admin",
-#    password="k8spass#",  # 비밀번호 (선택 사항)
-    # authentication_source="admin",  # 인증 DB (옵션)
+    db=db_name,
+    host=host,
+    port=port,
+    username=username,
+    # password=password,
+    # authentication_source='admin'  # 인증 DB 설정
 )
 
 

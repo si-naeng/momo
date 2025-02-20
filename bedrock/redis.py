@@ -1,9 +1,21 @@
 import redis
 from datetime import datetime
+import environ
 
-# Redis 클라이언트 설정
-redis_client = redis.StrictRedis(host='localhost', port=6379, db=0, decode_responses=True)
+# 환경 변수 설정
+env = environ.Env()
+environ.Env.read_env()  # .env 파일 읽기
 
+redis_host = env('REDIS_HOST', default='localhost')
+redis_port = env.int('REDIS_PORT', default=6379)
+redis_db = env.int('REDIS_DB', default=0)
+
+redis_client = redis.StrictRedis(
+    host=redis_host,
+    port=redis_port,
+    db=redis_db,
+    decode_responses=True
+)
 
 def save_chat_to_redis(user_id, user_message, bot_response):
     """
