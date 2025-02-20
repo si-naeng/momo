@@ -7,4 +7,6 @@ urlpatterns = [
     path("chatbot", QuestionView.as_view(), name="bedrock_chatbot"),
     path("response/<str:date>",BedrockResponseView.as_view(),name="calendar_recommend"),
     path("recommend_content/<str:date>", RecommendContentView.as_view(), name="calendar_recommend"),
+    path("redis/save",ChatSaveView.as_view(), name="chat_redis"),
+    path("redis/get", ChatHistoryView.as_view(), name="chat_redis" ),
 ]
