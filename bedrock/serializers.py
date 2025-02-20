@@ -75,3 +75,8 @@ class ContentEmotionStatsSerializer(DocumentSerializer):
     class Meta:
         model = ContentEmotionStats
         fields = '__all__'
+
+class ChatSerializer(serializers.Serializer):
+    user_id = serializers.CharField(max_length=100)
+    message = serializers.CharField()
+    response = serializers.CharField()

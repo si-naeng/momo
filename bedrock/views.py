@@ -1,6 +1,7 @@
 import re
 from datetime import datetime
 
+from django.http import JsonResponse
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -8,7 +9,7 @@ from rest_framework.views import APIView
 
 from .bedrock import *
 from .serializers import *
-
+from .redis import *
 
 class CallBedrockAllPlatform(APIView):
 
@@ -263,99 +264,6 @@ class CallBedrockSubPlatform(APIView):
             return Response({"error": error_message},
                           status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-# class CallBedrockSubPlatform(APIView):
-#     """
-#     주어진 user_id와 date를 기반으로 Calendar 데이터를 조회한 뒤 Bedrock 모델 호출
-#     """
-#
-#     def post(self, request, date):
-#         """
-#         URL로부터 date 값을 직접 받도록 수정
-#         """
-#         try:
-#             # 로그인된 사용자 ID 가져오기
-#             auth_user = request.user
-#             user_id = getattr(auth_user, "username", None)  # Cognito의 user_id
-#
-#             if not user_id:
-#                 return Response({"error": "User ID is required or unauthorized."}, status=status.HTTP_401_UNAUTHORIZED)
-#
-#             # 날짜 형식 확인
-#             try:
-#                 target_date = datetime.strptime(date, "%Y-%m-%d").date()
-#             except ValueError:
-#                 return Response({"error": "Invalid date format. Use YYYY-MM-DD."}, status=status.HTTP_400_BAD_REQUEST)
-#
-#             # `Calendar`에서 user_id로 데이터 조회
-#             calendar = Calendar.objects(user_id=user_id).first()
-#             if not calendar or not calendar.entries:
-#                 return Response({"error": "No entries found for the given user_id."}, status=status.HTTP_404_NOT_FOUND)
-#
-#             # 해당 날짜의 데이터 조회
-#             target_date_str = target_date.strftime("%Y-%m-%d")
-#             entry = calendar.entries.get(target_date_str)
-#             if not entry:
-#                 return Response({"error": f"No entry found for date {target_date_str}."},
-#                                 status=status.HTTP_404_NOT_FOUND)
-#
-#             # `emoticons` 데이터 추출
-#             emoticons = entry.emoticons
-#             if not emoticons:
-#                 return Response({"error": "No emoticons data available in the entry."},
-#                                 status=status.HTTP_400_BAD_REQUEST)
-#
-#             # 추가적인 Calendar 데이터(`subscribe_platform`, `mbti`) 가져오기
-#             subscribe_platform = calendar.subscribe_platform or "No platform subscribed"
-#             mbti = calendar.mbti or "MBTI not provided"
-#
-#             # `EmoticonsSerializer`로 직렬화
-#             emoticons_serializer = EmoticonsSerializer(emoticons)
-#             emoticons_data = emoticons_serializer.data
-#
-#             # `Diary` 데이터 포함
-#             diary_text = entry.diary or "No diary provided"  # 다이어리가 없을 경우 기본값 설정
-#
-#             # Bedrock 호출: `subscribe_platform`과 `mbti`를 포함
-#             input_text = f"Emoticons Details: {emoticons_data}, Diary: {diary_text}, " \
-#                          f"Subscribed Platform: {subscribe_platform}"
-#             bedrock_response_data = bedrock_response_sub_platform(input_text)
-#
-#             # Bedrock 응답에서 추천 콘텐츠 제목({제목}) 추출
-#             recommended_content = None
-#             try:
-#                 # bedrock_response_data의 마지막 줄에서 "추천 콘텐츠 : " 이후를 추출
-#                 last_line = bedrock_response_data.strip().split("\n")[-1]  # 마지막 줄 추출
-#                 if last_line.startswith("추천 콘텐츠 :"):  # "추천 콘텐츠 :"로 시작하는지 확인
-#                     # "추천 콘텐츠 : {플랫폼}"에서 플랫폼 이름 추출
-#                     prefix = "추천 콘텐츠 :"
-#                     content_after_prefix = last_line[len(prefix):].strip()  # "추천 콘텐츠 :" 이후의 텍스트
-#
-#                     # 첫 번째 단어(플랫폼 이름) 추출
-#                     platform, _, content = content_after_prefix.partition(" ")  # 플랫폼 이름 추출 후 나머지 내용
-#                     recommended_content = content.strip()  # 제목 부분만 남기기
-#
-#                     # 제목에서 큰따옴표 제거
-#                     recommended_content = recommended_content.strip('"').strip("'")
-#             except Exception as e:
-#                 print(f"Error parsing recommended content: {e}")  # 디버깅용 로그
-#
-#             # Entry에 추천 콘텐츠 제목 저장
-#             entry.result_emotion = bedrock_response_data  # 원래 Bedrock 응답 저장
-#             entry.recommend_content = recommended_content  # 추천 제목만 저장
-#             calendar.entries[target_date_str] = entry  # 변경된 Entry로 업데이트
-#             calendar.save()  # 변경 내용 저장
-#
-#             # Bedrock 응답 반환
-#             return Response({
-#                 "bedrock_response": bedrock_response_data
-#             }, status=status.HTTP_200_OK)
-#
-#         except Exception as e:
-#             # 예외 발생 시 오류 반환
-#             return Response({"error": f"An error occurred: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-
 class QuestionView(APIView):
     def post(self, request):
         # 요청 데이터 디버깅
@@ -515,5 +423,42 @@ class RecommendContentView(APIView):
                 {"error": f"오류가 발생했습니다: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-        
 
+
+class ChatSaveView(APIView):
+    """
+    View to save chat data to Redis
+    """
+
+    def post(self, request):
+        serializer = ChatSerializer(data=request.data)
+
+        if serializer.is_valid():
+            user_id = serializer.validated_data['user_id']
+            user_message = serializer.validated_data['message']
+            bot_response = serializer.validated_data['response']
+
+            # Redis에 대화 내용 저장
+            save_chat_to_redis(user_id, user_message, bot_response)
+
+            return JsonResponse({"message": "Chat saved successfully."}, status=status.HTTP_200_OK)
+
+        return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class ChatHistoryView(APIView):
+    """
+    View to retrieve chat history from Redis
+    """
+
+    def get(self, request, user_id):
+        try:
+            # Redis에서 대화 기록 가져오기
+            chat_history = get_chat_history_from_redis(user_id)
+
+            if not chat_history:
+                return JsonResponse({"message": "No chat history found."}, status=status.HTTP_404_NOT_FOUND)
+
+            return JsonResponse({"chat_history": chat_history}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
