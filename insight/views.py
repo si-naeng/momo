@@ -65,60 +65,50 @@ class MBTIEmotionStatsView(APIView):
 
         return HttpResponse(buf, content_type='image/png')
 
-class MBTITop5View(APIView):
+class MBTIRecommendTop5ContentsView(APIView):
     """
-    View to visualize and return top 5 contents by MBTI
+    View to return top 5 recommended contents by MBTI
     """
 
     def get(self, request):
-        top_5_contents = self.get_top_5_contents_by_mbti()
+        top_5_recommendations_by_mbti = self.get_top_5_recommendations_by_mbti()
 
-        # 시각화 설정
-        sns.set(style="whitegrid")
-        fig, axes = plt.subplots(nrows=len(top_5_contents), ncols=1, figsize=(10, 5 * len(top_5_contents)))
+        # 결과를 JSON 형식으로 변환
+        result = {
+            mbti: [{"title": title, "poster_url": poster_url} for title, poster_url in recommendations]
+            for mbti, recommendations in top_5_recommendations_by_mbti.items()
+        }
 
-        if len(top_5_contents) == 1:
-            axes = [axes]  # 단일 플롯일 경우 리스트로 변환
+        return JsonResponse(result, safe=False)
 
-        for ax, (mbti, contents) in zip(axes, top_5_contents.items()):
-            titles = [title for title, _ in contents]
-            scores = [score for _, score in contents]
-            ax.bar(titles, scores, color=sns.color_palette("husl", len(titles)))
-            ax.set_title(f"Top 5 Content for MBTI: {mbti}")
-            ax.set_xlabel("Content Title")
-            ax.set_ylabel("Total Emotion Count")
+    def get_top_5_recommendations_by_mbti(self):
+        # 모든 캘린더 문서 가져오기
+        all_calendars = Calendar.objects.all()
 
-        plt.tight_layout()
+        # MBTI별 추천 콘텐츠 카운트 저장
+        mbti_recommend_count = defaultdict(lambda: defaultdict(int))
 
-        # 이미지로 변환
-        buf = io.BytesIO()
-        plt.savefig(buf, format='png', bbox_inches='tight')
-        plt.close(fig)
-        buf.seek(0)
+        for calendar in all_calendars:
+            mbti = calendar.mbti
+            for entry in calendar.entries.values():
+                if entry.recommend_content:
+                    mbti_recommend_count[mbti][entry.recommend_content] += 1
 
-        return HttpResponse(buf, content_type='image/png')
+        # MBTI별 추천 콘텐츠 상위 5개 추출
+        top_5_recommendations_by_mbti = {}
+        for mbti, recommend_count in mbti_recommend_count.items():
+            top_5_recommendations = sorted(recommend_count.items(), key=lambda x: x[1], reverse=True)[:5]
 
-    def get_top_5_contents_by_mbti(self):
-        # 모든 문서 가져오기
-        all_stats = ContentEmotionStats.objects.all()
+            # 콘텐츠 정보 가져오기
+            top_5_contents = []
+            for title, _ in top_5_recommendations:
+                content = Contents.objects(title=title).first()
+                if content:
+                    top_5_contents.append((content.title, content.poster_url))
 
-        # MBTI별 영화 감정 합산 저장
-        mbti_content_scores = defaultdict(list)
+            top_5_recommendations_by_mbti[mbti] = top_5_contents
 
-        for stat in all_stats:
-            for mbti, emotions in stat.mbti_emotions.items():
-                # 감정 카운트 합산
-                total_emotion_count = sum(emotions.values())
-                # (영화 제목, 총 감정 카운트) 튜플 추가
-                mbti_content_scores[mbti].append((stat.title, total_emotion_count))
-
-        # MBTI별 상위 5개 영화 추출
-        top_5_contents_by_mbti = {}
-        for mbti, contents in mbti_content_scores.items():
-            # 총 감정 카운트를 기준으로 정렬 후 상위 5개 선택
-            top_5_contents_by_mbti[mbti] = sorted(contents, key=lambda x: x[1], reverse=True)[:5]
-
-        return top_5_contents_by_mbti
+        return top_5_recommendations_by_mbti
 
 class MBTIMemberCountView(APIView):
     """
@@ -160,30 +150,13 @@ class EmotionTop5ContentsView(APIView):
     def get(self, request):
         top_5_movies = self.get_top_5_movies_by_emotion()
 
-        # 시각화 설정
-        sns.set(style="whitegrid")
-        fig, axes = plt.subplots(nrows=len(top_5_movies), ncols=1, figsize=(10, 5 * len(top_5_movies)))
+        # 결과를 JSON 형식으로 변환
+        result = {
+            emotion: [{"title": title, "poster_url": poster_url} for title, _, poster_url in movies]
+            for emotion, movies in top_5_movies.items()
+        }
 
-        if len(top_5_movies) == 1:
-            axes = [axes]  # 단일 플롯일 경우 리스트로 변환
-
-        for ax, (emotion, movies) in zip(axes, top_5_movies.items()):
-            titles = [title for title, _ in movies]
-            scores = [score for _, score in movies]
-            ax.bar(titles, scores, color=sns.color_palette("husl", len(titles)))
-            ax.set_title(f"Top 5 Movies for Emotion: {emotion}")
-            ax.set_xlabel("Movie Title")
-            ax.set_ylabel("Total Emotion Count")
-
-        plt.tight_layout()
-
-        # 이미지로 변환
-        buf = io.BytesIO()
-        plt.savefig(buf, format='png', bbox_inches='tight')
-        plt.close(fig)
-        buf.seek(0)
-
-        return HttpResponse(buf, content_type='image/png')
+        return JsonResponse(result, safe=False)
 
     def get_top_5_movies_by_emotion(self):
         # 모든 문서 가져오기
@@ -195,8 +168,8 @@ class EmotionTop5ContentsView(APIView):
         for stat in all_stats:
             for mbti, emotions in stat.mbti_emotions.items():
                 for emotion, count in emotions.items():
-                    # (영화 제목, 감정 카운트) 튜플 추가
-                    emotion_movie_scores[emotion].append((stat.title, count))
+                    # (영화 제목, 감정 카운트, 포스터 URL) 튜플 추가
+                    emotion_movie_scores[emotion].append((stat.title, count, stat.poster_url))
 
         # 감정별 상위 5개 영화 추출
         top_5_movies_by_emotion = {}

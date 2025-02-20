@@ -23,10 +23,7 @@ from drf_yasg import openapi
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('users/', include('users.urls')),
-    path('home/',include('home.urls')),
-    path('bedrock/', include('bedrock.urls')),
-    path('statistics/',include('insight.urls')),
+    path('insight/',include('insight.urls')),
 ]
 
 

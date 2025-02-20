@@ -13,8 +13,14 @@ from pathlib import Path
 
 from django.urls import path
 
+# environment
+import environ
+import os
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+env = environ.Env(DEBUG=(bool, False))
+environ.Env.read_env(os.path.join(BASE_DIR, 'momo/../.env'))
+
 
 
 
@@ -39,13 +45,10 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'home.apps.HomeConfig',
     'insight.apps.InsightConfig',
     'rest_framework',
     'rest_framework.authtoken',
-    'users.apps.UsersConfig',
     'drf_yasg',
-    'bedrock.apps.BedrockConfig'
 ]
 
 
@@ -102,15 +105,21 @@ WSGI_APPLICATION = 'momo.wsgi.application'
 
 from mongoengine import connect
 
-# MongoDB 연결 정보
+# 환경 변수에서 MongoDB 연결 정보 가져오기
+db_name = env('DB_NAME', default='momo')
+host = env('DB_HOST', default='localhost').split(',')
+port = env.int('DB_PORT', default=27017)
+username = env('DB_USERNAME', default=None)
+password = env('DB_PASSWORD', default=None)
+
+# MongoDB 연결
 connect(
-    db="momo",  # 사용할 데이터베이스 이름
-    host=["localhost"],
-#    host=["192.168.56.109", "192.168.56.110", "192.168.56.111"],  # MongoDB 호스트 주소 (기본: localhost)
-    port=27017,  # 포트 번호 (기본: 27017)
-#    username="admin",
-#    password="k8spass#",  # 비밀번호 (선택 사항)
-    # authentication_source="admin",  # 인증 DB (옵션)
+    db=db_name,
+    host=host,
+    port=port,
+    username=username,
+    # password=password,
+    # authentication_source='admin'  # 인증 DB 설정
 )
 
 
@@ -147,7 +156,7 @@ environ.Env.read_env(os.path.join(BASE_DIR, 'momo/../.env'))
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'home.authentication.CognitoAuthentication',  # CognitoAuthentication 추가
+        'insight.authentication.CognitoAuthentication',  # CognitoAuthentication 추가
         'rest_framework.authentication.TokenAuthentication',
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ]
