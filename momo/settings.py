@@ -105,10 +105,11 @@ from mongoengine import connect
 # MongoDB 연결 정보
 connect(
     db="momo",  # 사용할 데이터베이스 이름
-    host=["192.168.56.109", "192.168.56.110", "192.168.56.111"],  # MongoDB 호스트 주소 (기본: localhost)
+    host=["localhost"],
+#    host=["192.168.56.109", "192.168.56.110", "192.168.56.111"],  # MongoDB 호스트 주소 (기본: localhost)
     port=27017,  # 포트 번호 (기본: 27017)
-    username="admin",
-    password="k8spass#",  # 비밀번호 (선택 사항)
+#    username="admin",
+#    password="k8spass#",  # 비밀번호 (선택 사항)
     # authentication_source="admin",  # 인증 DB (옵션)
 )
 

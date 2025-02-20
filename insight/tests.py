@@ -1,3 +1,3 @@
-from django.test import TestCase
+from matplotlib import font_manager
 
-# Create your tests here.
+print(font_manager.findSystemFonts())
