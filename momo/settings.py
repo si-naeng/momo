@@ -12,10 +12,15 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 from pathlib import Path
 
 from django.urls import path
+# environment
+import environ
+import os
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
+env = environ.Env(DEBUG=(bool, False))
+environ.Env.read_env(os.path.join(BASE_DIR, 'momo/../.env'))
 
 
 # Quick-start development settings - unsuitable for production
@@ -39,11 +44,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'home.apps.HomeConfig',
-    'insight.apps.InsightConfig',
     'rest_framework',
     'rest_framework.authtoken',
-    'users.apps.UsersConfig',
     'drf_yasg',
     'bedrock.apps.BedrockConfig'
 ]
@@ -134,12 +136,7 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
-# environment
-import environ
-import os
 
-env = environ.Env(DEBUG=(bool, False))
-environ.Env.read_env(os.path.join(BASE_DIR, 'momo/../.env'))
 
 
 # Internationalization
@@ -147,7 +144,7 @@ environ.Env.read_env(os.path.join(BASE_DIR, 'momo/../.env'))
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'home.authentication.CognitoAuthentication',  # CognitoAuthentication 추가
+        'bedrock.authentication.CognitoAuthentication',  # CognitoAuthentication 추가
         'rest_framework.authentication.TokenAuthentication',
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ]
